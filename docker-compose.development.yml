@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      args:
+        BUILD_ENV: development
+    environment:
+      - APP_MODE=development
+      - LOG_LEVEL=DEBUG
+      - ENABLE_PROFILING=true
+      - ENABLE_DEBUG=true
+      - MAX_COST_BUDGET=0.0
+      - MODEL_PROVIDER=ollama
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./scripts:/app/scripts:ro
+      - ./examples:/app/examples:ro
+    command: ["python", "-m", "src.main", "--reload"]
+    
+  ollama:
+    image: ollama/ollama:latest
+    container_name: biocurator-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - biocurator-network
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development tools
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    container_name: biocurator-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./src:/home/jovyan/src:ro
+      - ./data:/home/jovyan/data
+    networks:
+      - biocurator-network
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=biocurator-dev
+
+volumes:
+  ollama-data:

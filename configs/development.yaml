@@ -1,0 +1,48 @@
+# Development environment configuration
+# Overrides base configuration for development mode
+
+app_mode: development
+log_level: DEBUG
+
+# Development safety - zero cost, strict controls
+safety:
+  max_cost_budget: 0.0
+  rate_limit_per_minute: 30
+  circuit_breaker_threshold: 0.3  # More sensitive in dev
+  circuit_breaker_window: 180     # Shorter window
+  circuit_breaker_min_volume: 5   # Lower threshold
+
+# Local development databases
+database:
+  redis_url: redis://localhost:6379/0
+  neo4j_uri: bolt://localhost:7687
+  neo4j_user: neo4j
+  neo4j_password: dev_password
+  postgres_url: postgresql://postgres:postgres@localhost:5432/biocurator_dev
+  qdrant_url: http://localhost:6333
+
+# Development models - Ollama only
+models:
+  provider: ollama
+  ollama_host: http://localhost:11434
+
+# Development monitoring
+monitoring:
+  prometheus_enabled: true
+  metrics_port: 9090
+  enable_profiling: true
+  enable_debug: true
+
+# Development paths
+paths:
+  data_path: ./data
+  log_path: ./logs
+  config_path: ./configs
+
+# Development CORS - more permissive
+cors_origins:
+  - http://localhost:3000
+  - http://localhost:8080
+  - http://localhost:8888  # Jupyter
+  - http://127.0.0.1:3000
+  - http://127.0.0.1:8080

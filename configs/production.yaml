@@ -1,0 +1,47 @@
+# Production environment configuration
+# Overrides base configuration for production mode
+
+app_mode: production
+log_level: INFO
+
+# Production safety - configurable budget, balanced controls
+safety:
+  max_cost_budget: 100.0           # $100 default budget
+  rate_limit_per_minute: 60        # Higher throughput
+  circuit_breaker_threshold: 0.7   # Less sensitive
+  circuit_breaker_window: 600      # Longer window
+  circuit_breaker_min_volume: 20   # Higher threshold
+
+# Production databases - use environment variables
+database:
+  redis_url: ${REDIS_URL}
+  neo4j_uri: ${NEO4J_URI}
+  neo4j_user: ${NEO4J_USER}
+  neo4j_password: ${NEO4J_PASSWORD}
+  postgres_url: ${POSTGRES_URL}
+  qdrant_url: ${QDRANT_URL}
+
+# Production models - cloud providers
+models:
+  provider: cloud
+  openai_api_key: ${OPENAI_API_KEY}
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  huggingface_token: ${HUGGINGFACE_TOKEN}
+
+# Production monitoring
+monitoring:
+  prometheus_enabled: true
+  metrics_port: 9090
+  enable_profiling: false
+  enable_debug: false
+
+# Production paths
+paths:
+  data_path: /data
+  log_path: /logs
+  config_path: /app/configs
+
+# Production CORS - restrictive
+cors_origins:
+  - ${FRONTEND_URL}
+  - https://app.biocurator.ai

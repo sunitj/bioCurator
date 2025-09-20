@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      args:
+        BUILD_ENV: production
+    environment:
+      - APP_MODE=production
+      - LOG_LEVEL=INFO
+      - ENABLE_PROFILING=false
+      - ENABLE_DEBUG=false
+      - MAX_COST_BUDGET=${MAX_COST_BUDGET:-100.0}
+      - MODEL_PROVIDER=cloud
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./logs:/logs
+      - ./data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    restart: always
+    
+  # Production monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: biocurator-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - biocurator-network
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: biocurator-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./configs/grafana:/etc/grafana/provisioning:ro
+    networks:
+      - biocurator-network
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=redis-datasource
+
+volumes:
+  prometheus-data:
+  grafana-data:

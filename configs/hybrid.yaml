@@ -1,0 +1,49 @@
+# Hybrid environment configuration
+# Local-first with cloud escalation for complex tasks
+
+app_mode: hybrid
+log_level: INFO
+
+# Hybrid safety - moderate budget, adaptive controls
+safety:
+  max_cost_budget: 25.0            # Moderate budget
+  rate_limit_per_minute: 45        # Balanced throughput
+  circuit_breaker_threshold: 0.5   # Standard sensitivity
+  circuit_breaker_window: 300      # Standard window
+  circuit_breaker_min_volume: 10   # Standard threshold
+
+# Hybrid databases - prefer local, fallback to cloud
+database:
+  redis_url: redis://localhost:6379/0
+  neo4j_uri: bolt://localhost:7687
+  neo4j_user: neo4j
+  neo4j_password: ${NEO4J_PASSWORD:-hybrid_password}
+  postgres_url: postgresql://postgres:postgres@localhost:5432/biocurator_hybrid
+  qdrant_url: http://localhost:6333
+
+# Hybrid models - local first, cloud escalation
+models:
+  provider: ollama  # Primary provider
+  ollama_host: http://localhost:11434
+  # Cloud fallback credentials
+  openai_api_key: ${OPENAI_API_KEY}
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+
+# Hybrid monitoring
+monitoring:
+  prometheus_enabled: true
+  metrics_port: 9090
+  enable_profiling: true   # More monitoring for optimization
+  enable_debug: false
+
+# Hybrid paths
+paths:
+  data_path: ./data
+  log_path: ./logs
+  config_path: ./configs
+
+# Hybrid CORS - moderate restrictions
+cors_origins:
+  - http://localhost:3000
+  - http://localhost:8080
+  - https://staging.biocurator.ai

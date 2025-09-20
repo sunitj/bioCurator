@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ENV: ${APP_MODE:-development}
+    container_name: biocurator-app
+    environment:
+      - APP_MODE=${APP_MODE:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./configs:/app/configs
+      - ./logs:/logs
+      - ./data:/data
+    ports:
+      - "8080:8080"  # Health endpoints
+      - "9090:9090"  # Prometheus metrics
+    networks:
+      - biocurator-network
+    restart: unless-stopped
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: biocurator-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - biocurator-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  biocurator-network:
+    driver: bridge
+
+volumes:
+  redis-data:

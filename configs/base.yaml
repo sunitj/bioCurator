@@ -1,0 +1,48 @@
+# Base configuration for BioCurator
+# This file contains default settings that apply to all environments
+
+app_mode: development
+log_level: INFO
+port: 8080
+secret_key: change-me-in-production
+
+# Safety defaults
+safety:
+  rate_limit_per_minute: 30
+  circuit_breaker_threshold: 0.5
+  circuit_breaker_window: 300
+  circuit_breaker_min_volume: 10
+  burst_capacity: 60
+  refill_rate: 0.5
+
+# Database defaults
+database:
+  redis_url: redis://redis:6379/0
+  neo4j_uri: bolt://neo4j:7687
+  neo4j_user: neo4j
+  neo4j_password: ""
+  postgres_url: postgresql://postgres:postgres@postgres:5432/biocurator
+  qdrant_url: http://qdrant:6333
+
+# Model defaults
+models:
+  provider: ollama
+  ollama_host: http://ollama:11434
+
+# Monitoring defaults
+monitoring:
+  prometheus_enabled: true
+  metrics_port: 9090
+  enable_profiling: false
+  enable_debug: false
+
+# Path defaults
+paths:
+  data_path: /data
+  log_path: /logs
+  config_path: /app/configs
+
+# CORS defaults
+cors_origins:
+  - http://localhost:3000
+  - http://localhost:8080
