@@ -74,13 +74,30 @@ If code triggers external model calls or orchestrates agents:
 - Deterministic tests (seed randomness; avoid external network unless mocked)
 - Provide factory/helpers for repeated test constructions
 
-## Tooling Commands (suggested, may evolve)
+## Development Setup
+
+### Environment Setup with UV
 
 ```bash
-make install       # install deps
+# Automated setup
+./scripts/setup_venv.sh
+source .venv/bin/activate
+
+# Manual setup
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+### Tooling Commands
+
+```bash
+make setup         # set up development environment (legacy)
 make lint          # run linters / style checks
 make test          # run test suite with coverage
+make format        # format code with black/ruff
 make health        # invoke health_check script
+make clean         # clean build artifacts
 ```
 
 ## Commit & PR Hygiene
@@ -101,9 +118,12 @@ Reviewer looks for:
 
 ## Adding New Dependencies
 
+- Update `pyproject.toml` with new dependencies
+- Use appropriate section: `dependencies`, `dev`, `ml`, or `docs`
 - Justify in PR description (why existing libs insufficient)
-- Pin version
+- Pin version ranges appropriately (>=X.Y.Z)
 - Security scan passes
+- Run `uv pip compile` if needed for lock files
 
 ## Performance & Benchmarks
 

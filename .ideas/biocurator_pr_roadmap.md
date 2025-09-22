@@ -36,7 +36,7 @@ Files:
   - docker-compose.development.yml (development environment)
   - docker-compose.production.yml (production environment)
   - Dockerfile (primary application container)
-  - requirements.txt (Python dependencies)
+  - pyproject.toml (Python dependencies and project configuration)
   - .env.example (environment configuration template)
   - .github/workflows/ci.yml (GitHub Actions CI/CD)
   - .gitignore (comprehensive Python/Docker ignores)

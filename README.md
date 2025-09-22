@@ -11,9 +11,10 @@ BioCurator demonstrates how AI agents can develop domain expertise through colla
 ### Development Mode (Local Models - Zero Cost)
 
 ```bash
-# Set up development environment
+# Set up development environment with UV
+./scripts/setup_venv.sh
+source .venv/bin/activate
 export APP_MODE=development
-make setup
 
 # Run with local models (Ollama)
 docker-compose -f docker-compose.yml -f docker-compose.development.yml up
@@ -25,9 +26,10 @@ make health
 ### Production Mode (Cloud Models)
 
 ```bash
-# Set up production environment
+# Set up production environment with UV
+./scripts/setup_venv.sh
+source .venv/bin/activate
 export APP_MODE=production
-make setup
 
 # Run with cloud models
 docker-compose -f docker-compose.yml -f docker-compose.production.yml up
@@ -35,7 +37,7 @@ docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                     Agent Orchestra                      │
 ├─────────────────────────────────────────────────────────┤
@@ -63,6 +65,27 @@ docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 - **Production Ready**: Cloud model integration with comprehensive monitoring and observability
 
 ## Development
+
+### Requirements
+
+- Python 3.11+
+- [UV package manager](https://docs.astral.sh/uv/) (installed automatically by setup script)
+- Docker and Docker Compose
+
+### Setup
+
+```bash
+# Automated setup with UV
+./scripts/setup_venv.sh
+source .venv/bin/activate
+
+# Manual setup alternative
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+### Common Commands
 
 ```bash
 # Run tests
@@ -94,6 +117,7 @@ curl http://localhost:8080/health
 ## Testing
 
 The project maintains:
+
 - >=70% overall test coverage
 - >=85% coverage for safety-critical modules
 - Comprehensive integration tests

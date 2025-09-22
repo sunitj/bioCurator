@@ -32,6 +32,23 @@ BioCurator is a memory-augmented multi-agent system for scientific literature cu
 
 ## Development Setup
 
+### Requirements
+- Python 3.11+
+- [UV package manager](https://docs.astral.sh/uv/) (auto-installed by setup script)
+- Docker and Docker Compose
+
+### Quick Start
+```bash
+# Automated setup with UV (recommended)
+./scripts/setup_venv.sh
+source .venv/bin/activate
+
+# Manual setup alternative
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
 ### Local Development with Ollama
 ```bash
 # Setup Ollama for development mode
@@ -47,9 +64,11 @@ scripts/download_models.py
 ### Docker Environment
 ```bash
 # Development environment
+export APP_MODE=development
 docker-compose -f docker-compose.yml -f docker-compose.development.yml up
 
-# Production environment  
+# Production environment
+export APP_MODE=production
 docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 
 # Memory services
@@ -60,12 +79,16 @@ docker-compose -f docker-compose.memory.yml up
 
 ### Build and Development
 ```bash
+# Setup development environment with UV
+./scripts/setup_venv.sh && source .venv/bin/activate
+
 # Makefile targets (PR #1)
 make build      # Build Docker containers
 make lint       # Run code linters
 make test       # Run test suite
 make format     # Format code
 make health     # Check system health
+make clean      # Clean build artifacts
 ```
 
 ### Testing

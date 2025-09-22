@@ -92,6 +92,10 @@ poetry.lock
 # pdm
 .pdm.toml
 
+# uv
+uv.lock
+.uv-cache/
+
 # PEP 582
 __pypackages__/
 
@@ -173,6 +177,7 @@ ehthumbs_vista.db
 /notebooks/*.pdf
 sbom.json
 .ruff_cache/
+test-results.xml
 
 # Docker
 *.pid

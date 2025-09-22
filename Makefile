@@ -17,8 +17,14 @@ help:
 
 # Setup development environment
 setup:
-	@echo "Setting up development environment..."
-	pip install -r requirements.txt -r requirements-dev.txt
+	@echo "Setting up development environment with UV..."
+	@if command -v uv >/dev/null 2>&1; then \
+		uv venv --python 3.11; \
+		source .venv/bin/activate && uv pip install -e ".[dev]"; \
+	else \
+		echo "UV not found. Run ./scripts/setup_venv.sh instead"; \
+		exit 1; \
+	fi
 	pre-commit install
 	@echo "Environment setup complete!"
 
@@ -80,14 +86,14 @@ clean:
 # Security scan
 security-scan:
 	@echo "Running security scan..."
-	pip-audit
-	safety check
+	uv run pip-audit
+	uv run bandit -r src/
 
 # Generate SBOM
 sbom:
 	@echo "Generating Software Bill of Materials..."
-	pip install cyclonedx-bom
-	cyclonedx-py -r -i requirements.txt -o sbom.json --format json
+	uv add --dev cyclonedx-bom
+	uv run cyclonedx-py --format json --output-file sbom.json .
 
 # Run development server
 dev:
