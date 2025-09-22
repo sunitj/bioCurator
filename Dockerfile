@@ -1,5 +1,5 @@
 # Multi-stage build for BioCurator
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set build arguments
 ARG BUILD_ENV=development
@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Add UV to PATH
-ENV PATH="/root/.cargo/bin:$PATH"
+# Add UV to PATH (UV installs to /root/.local/bin)
+ENV PATH="/root/.local/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
@@ -24,9 +24,9 @@ COPY pyproject.toml .
 COPY README.md .
 
 # Create virtual environment and install dependencies
-RUN uv venv && \
-    . .venv/bin/activate && \
-    if [ "$BUILD_ENV" = "development" ]; then \
+RUN uv venv \
+    && . .venv/bin/activate \
+    && if [ "$BUILD_ENV" = "development" ]; then \
         uv pip install -e ".[dev]"; \
     else \
         uv pip install -e .; \
