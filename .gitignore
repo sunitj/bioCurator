@@ -93,7 +93,6 @@ poetry.lock
 .pdm.toml
 
 # uv
-uv.lock
 .uv-cache/
 
 # PEP 582
