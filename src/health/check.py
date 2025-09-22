@@ -1,8 +1,10 @@
 """Simple health check implementation."""
 
-import sys
 import asyncio
+import sys
+
 import httpx
+
 
 async def check_health(base_url: str = "http://localhost:8080") -> bool:
     """Simple health check for the application."""
@@ -13,6 +15,7 @@ async def check_health(base_url: str = "http://localhost:8080") -> bool:
     except Exception:
         return False
 
+
 def main():
     """CLI health check."""
     result = asyncio.run(check_health())
@@ -22,6 +25,7 @@ def main():
     else:
         print("Health check: FAILED")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -1,11 +1,10 @@
 """Health monitoring for BioCurator."""
 
+from .check import check_health, main
 from .endpoints import create_health_router
-from .check import HealthChecker, HealthStatus, ComponentStatus
 
 __all__ = [
     "create_health_router",
-    "HealthChecker", 
-    "HealthStatus",
-    "ComponentStatus",
+    "check_health", 
+    "main",
 ]

@@ -4,24 +4,32 @@ FROM python:3.11-slim as builder
 # Set build arguments
 ARG BUILD_ENV=development
 
-# Install build dependencies
+# Install build dependencies and UV
 RUN apt-get update && apt-get install -y \
+    curl \
     gcc \
     g++ \
     make \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add UV to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt requirements-dev.txt ./
+# Copy project files
+COPY pyproject.toml .
+COPY README.md .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
+# Create virtual environment and install dependencies
+RUN uv venv && \
+    . .venv/bin/activate && \
     if [ "$BUILD_ENV" = "development" ]; then \
-        pip install --no-cache-dir -r requirements-dev.txt; \
+        uv pip install -e ".[dev]"; \
+    else \
+        uv pip install -e .; \
     fi
 
 # Production stage
@@ -30,19 +38,19 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    APP_MODE=${APP_MODE:-development}
+    APP_MODE=${APP_MODE:-development} \
+    PATH="/app/.venv/bin:$PATH"
 
 # Create non-root user
 RUN useradd -m -u 1000 biocurator && \
     mkdir -p /app /logs /data && \
     chown -R biocurator:biocurator /app /logs /data
 
-# Copy Python packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
 # Set working directory
 WORKDIR /app
+
+# Copy virtual environment from builder
+COPY --from=builder --chown=biocurator:biocurator /app/.venv /app/.venv
 
 # Copy application code
 COPY --chown=biocurator:biocurator . .
