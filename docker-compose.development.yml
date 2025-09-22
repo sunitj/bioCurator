@@ -50,7 +50,7 @@ services:
       - biocurator-network
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      - JUPYTER_TOKEN=biocurator-dev
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:-biocurator-dev}
 
 volumes:
   ollama-data:

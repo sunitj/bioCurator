@@ -1,44 +1,59 @@
-# Multi-stage build for BioCurator
-FROM python:3.11-slim AS builder
+# Multi-stage build for BioCurator following UV best practices
+FROM python:3.12-slim-bookworm AS base
 
-# Set build arguments
-ARG BUILD_ENV=development
-
-# Install build dependencies and UV
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     gcc \
     g++ \
     make \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
+    && rm -rf /var/lib/apt/lists/*
 
-# Add UV to PATH (UV installs to /root/.local/bin)
-ENV PATH="/root/.local/bin:$PATH"
+FROM base AS builder
+
+# Copy uv from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Set build arguments
+ARG BUILD_ENV=development
+
+# Set UV environment variables for optimization
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 # Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY pyproject.toml .
-COPY README.md .
+# Copy dependency files first for better layer caching
+COPY uv.lock pyproject.toml ./
 
-# Create virtual environment and install dependencies
-RUN uv venv \
-    && . .venv/bin/activate \
-    && if [ "$BUILD_ENV" = "development" ]; then \
-        uv pip install -e ".[dev]"; \
+# Install dependencies only (without the project itself)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    if [ "$BUILD_ENV" = "development" ]; then \
+        uv sync --frozen --no-install-project; \
     else \
-        uv pip install -e .; \
+        uv sync --frozen --no-install-project --no-dev; \
+    fi
+
+# Copy the rest of the application code
+COPY . /app
+
+# Install the project itself
+RUN --mount=type=cache,target=/root/.cache/uv \
+    if [ "$BUILD_ENV" = "development" ]; then \
+        uv sync --frozen; \
+    else \
+        uv sync --frozen --no-dev; \
     fi
 
 # Production stage
-FROM python:3.11-slim
+FROM base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     APP_MODE=${APP_MODE:-development} \
+    VIRTUAL_ENV="/app/.venv" \
     PATH="/app/.venv/bin:$PATH"
 
 # Create non-root user
@@ -49,11 +64,9 @@ RUN useradd -m -u 1000 biocurator && \
 # Set working directory
 WORKDIR /app
 
-# Copy virtual environment from builder
+# Copy virtual environment and application from builder
 COPY --from=builder --chown=biocurator:biocurator /app/.venv /app/.venv
-
-# Copy application code
-COPY --chown=biocurator:biocurator . .
+COPY --from=builder --chown=biocurator:biocurator /app /app
 
 # Switch to non-root user
 USER biocurator

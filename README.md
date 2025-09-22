@@ -16,8 +16,17 @@ BioCurator demonstrates how AI agents can develop domain expertise through colla
 source .venv/bin/activate
 export APP_MODE=development
 
+# Configure environment (optional - uses defaults if not set)
+cp .env.example .env
+# Edit .env to set JUPYTER_TOKEN and other configurations
+
 # Run with local models (Ollama)
 docker-compose -f docker-compose.yml -f docker-compose.development.yml up
+
+# Access services:
+# - BioCurator API: http://localhost:8080
+# - Jupyter Lab: http://localhost:8888 (token: see JUPYTER_TOKEN in .env or default: biocurator-dev)
+# - Ollama API: http://localhost:11434
 
 # Check system health
 make health
