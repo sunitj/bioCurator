@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 from .context import get_current_context
 
@@ -103,7 +103,7 @@ def setup_logging(
     if enable_console:
         console_handler = logging.StreamHandler(sys.stdout)
         if enable_json:
-            console_formatter = jsonlogger.JsonFormatter(
+            console_formatter = JsonFormatter(
                 fmt="%(asctime)s %(name)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
             )
         else:
@@ -124,7 +124,7 @@ def setup_logging(
         file_handler = logging.FileHandler(app_log_file)
 
         if enable_json:
-            file_formatter = jsonlogger.JsonFormatter(
+            file_formatter = JsonFormatter(
                 fmt="%(asctime)s %(name)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
             )
         else:

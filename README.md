@@ -46,6 +46,9 @@ docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 
 ## Architecture
 
+<!-- Architecture Diagram Placeholder: docs/images/architecture.png -->
+<!-- TODO: Add detailed system architecture diagram showing component interactions -->
+
 ```text
 ┌─────────────────────────────────────────────────────────┐
 │                     Agent Orchestra                      │

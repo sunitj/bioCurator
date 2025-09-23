@@ -194,6 +194,20 @@ jobs:
           name: security-reports
           path: bandit-report.json
 
+      - name: Generate SBOM
+        run: |
+          source .venv/bin/activate
+          uv pip install cyclonedx-bom
+          cyclonedx-py --format json --output-file sbom.json .
+        continue-on-error: true
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom.json
+
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest

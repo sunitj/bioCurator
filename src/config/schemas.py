@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class AppMode(str, Enum):
@@ -141,10 +141,9 @@ class ConfigSchema(BaseModel):
 
         return v
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_prefix = ""
-        case_sensitive = False
-        validate_assignment = True
-        extra = "forbid"  # Reject unknown configuration keys
+    model_config = ConfigDict(
+        env_prefix="",
+        case_sensitive=False,
+        validate_assignment=True,
+        extra="forbid",  # Reject unknown configuration keys
+    )
