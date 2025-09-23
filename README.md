@@ -12,6 +12,7 @@ BioCurator demonstrates how AI agents can develop domain expertise through colla
 
 ```bash
 # Set up development environment with UV
+export UV_LINK_MODE=copy
 ./scripts/setup_venv.sh
 source .venv/bin/activate
 export APP_MODE=development
