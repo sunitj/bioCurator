@@ -71,8 +71,11 @@ docker-compose -f docker-compose.yml -f docker-compose.development.yml up
 export APP_MODE=production
 docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 
-# Memory services
+# Memory services (PR #2)
 docker-compose -f docker-compose.memory.yml up
+
+# Initialize memory system
+python scripts/setup_memory.py
 ```
 
 ## Common Commands
@@ -149,13 +152,35 @@ curl http://localhost:9090/metrics
 
 ### Memory Management
 ```bash
-# Initialize memory systems
+# Initialize memory systems (PR #2)
 python scripts/setup_memory.py
 
-# Generate embeddings for papers
+# Reset all memory data (DESTRUCTIVE)
+python scripts/setup_memory.py --reset
+
+# Health check all memory backends
+python -c "
+import asyncio
+from src.config.loader import load_config
+from src.memory.manager import DefaultMemoryManager
+async def check():
+    config = load_config()
+    async with DefaultMemoryManager(config.database) as manager:
+        health = await manager.health_check_all()
+        for name, status in health.items():
+            print(f'{name}: {status.message}')
+asyncio.run(check())
+"
+
+# Memory backend endpoints
+curl http://localhost:7474  # Neo4j browser
+curl http://localhost:6333/collections  # Qdrant collections
+curl http://localhost:8086  # InfluxDB UI
+
+# Generate embeddings for papers (future)
 python scripts/generate_embeddings.py
 
-# Benchmark memory performance
+# Benchmark memory performance (future)
 python scripts/benchmark_memory.py
 ```
 

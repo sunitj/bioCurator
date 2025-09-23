@@ -45,10 +45,11 @@ Include links to relevant resources, discussions, or documentation.
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
-| [0001](0001-logging-and-configuration.md) | Logging and Configuration Architecture | Accepted | 2024-01-15 |
-| [0002](0002-project-structure.md) | Project Structure and Organization | Accepted | 2024-01-15 |
-| [0003](0003-circuit-breaker-and-safety.md) | Circuit Breaker and Safety Architecture | Accepted | 2024-01-16 |
-| [0004](0004-local-model-optimization.md) | Local Model Optimization and Quality Bridge | Accepted | 2024-01-17 |
+| [0001](0001-logging-and-configuration.md) | Logging and Configuration Architecture | Accepted | 2024-09-22 |
+| [0002](0002-project-structure.md) | Project Structure and Organization | Accepted | 2024-09-22 |
+| [0003](0003-circuit-breaker-and-safety.md) | Circuit Breaker and Safety Architecture | Accepted | 2024-09-22 |
+| [0004](0004-local-model-optimization.md) | Local Model Optimization and Quality Bridge | Accepted | 2024-09-22 |
+| [0005](0005-memory-system-architecture.md) | Multi-Modal Memory System Architecture | Accepted | 2024-09-23 |
 
 ## Guidelines for Writing ADRs
 

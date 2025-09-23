@@ -14,12 +14,36 @@ safety:
 
 # Local development databases
 database:
+  # Redis - Working memory
   redis_url: redis://localhost:6379/0
+  redis_pool_size: 5
+  redis_socket_timeout: 5
+
+  # Neo4j - Knowledge graph
   neo4j_uri: bolt://localhost:7687
   neo4j_user: neo4j
   neo4j_password: dev_password
+  neo4j_max_connection_pool_size: 10
+  neo4j_connection_timeout: 30
+
+  # PostgreSQL - Episodic memory
   postgres_url: postgresql://postgres:postgres@localhost:5432/biocurator_dev
+  postgres_pool_size: 5
+  postgres_max_overflow: 10
+  postgres_pool_timeout: 30
+
+  # Qdrant - Vector embeddings
   qdrant_url: http://localhost:6333
+  qdrant_grpc_port: 6334
+  qdrant_timeout: 60
+  qdrant_prefer_grpc: true
+
+  # InfluxDB - Agent metrics
+  influxdb_url: http://localhost:8086
+  influxdb_token: dev_token_12345
+  influxdb_org: biocurator
+  influxdb_bucket: agent_metrics
+  influxdb_timeout: 30
 
 # Development models - Ollama only
 models:

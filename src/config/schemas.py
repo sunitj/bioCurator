@@ -45,12 +45,38 @@ class SafetyConfig(BaseModel):
 class DatabaseConfig(BaseModel):
     """Database connection configuration."""
 
+    # Redis - Working memory and caching
     redis_url: str = Field(default="redis://localhost:6379/0")
+    redis_pool_size: int = Field(default=10, ge=1, le=100)
+    redis_socket_timeout: int = Field(default=5, ge=1, le=60)
+
+    # Neo4j - Knowledge graph
     neo4j_uri: str = Field(default="bolt://localhost:7687")
     neo4j_user: str = Field(default="neo4j")
     neo4j_password: str = Field(default="")
+    neo4j_max_connection_lifetime: int = Field(default=3600, ge=300, le=7200)
+    neo4j_max_connection_pool_size: int = Field(default=50, ge=1, le=200)
+    neo4j_connection_timeout: int = Field(default=30, ge=5, le=120)
+
+    # PostgreSQL - Episodic memory
     postgres_url: str = Field(default="postgresql://user:password@localhost:5432/biocurator")
+    postgres_pool_size: int = Field(default=20, ge=1, le=100)
+    postgres_max_overflow: int = Field(default=30, ge=0, le=100)
+    postgres_pool_timeout: int = Field(default=30, ge=5, le=120)
+    postgres_pool_recycle: int = Field(default=3600, ge=300, le=7200)
+
+    # Qdrant - Vector embeddings
     qdrant_url: str = Field(default="http://localhost:6333")
+    qdrant_grpc_port: int = Field(default=6334, ge=1024, le=65535)
+    qdrant_timeout: int = Field(default=60, ge=5, le=300)
+    qdrant_prefer_grpc: bool = Field(default=True)
+
+    # InfluxDB - Time series metrics
+    influxdb_url: str = Field(default="http://localhost:8086")
+    influxdb_token: str = Field(default="dev_token_12345")
+    influxdb_org: str = Field(default="biocurator")
+    influxdb_bucket: str = Field(default="agent_metrics")
+    influxdb_timeout: int = Field(default=30, ge=5, le=120)
 
 
 class ModelConfig(BaseModel):

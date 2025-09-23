@@ -25,6 +25,7 @@ class SafetyEventType(str, Enum):
     COST_BUDGET_VIOLATION = "cost_budget_violation"
     ANOMALY_DETECTED = "anomaly_detected"
     CLOUD_MODEL_BLOCKED = "cloud_model_blocked"
+    MEMORY_BACKEND_FAILURE = "memory_backend_failure"
 
 
 class SafetyEvent(BaseModel):
