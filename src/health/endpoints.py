@@ -91,6 +91,85 @@ def create_health_router() -> APIRouter:
                         )
                     )
 
+            # Check agent system health if available
+            if hasattr(request.app.state, "agent_registry"):
+                agent_registry = request.app.state.agent_registry
+                try:
+                    agent_health = await agent_registry.health_check_all()
+                    for agent_id, health_info in agent_health.items():
+                        components.append(
+                            ComponentHealthResponse(
+                                name=f"agent_{agent_id}",
+                                status="healthy" if health_info.get("is_active", False) else "unhealthy",
+                                message=f"Agent {agent_id}: {health_info.get('health_status', 'unknown')}",
+                                response_time_ms=1.0,  # Placeholder
+                                metadata={
+                                    "circuit_breaker_state": health_info.get("circuit_breaker_state", "unknown"),
+                                    "current_tasks": health_info.get("current_tasks", 0),
+                                    "memory_access": health_info.get("memory_access", "unknown"),
+                                },
+                            )
+                        )
+
+                    # Add agent system overview
+                    all_agent_status = await agent_registry.get_all_agent_status()
+                    active_agents = sum(1 for status in all_agent_status.values() if status.is_active)
+                    total_agents = len(all_agent_status)
+
+                    components.append(
+                        ComponentHealthResponse(
+                            name="agent_system",
+                            status="healthy" if active_agents > 0 else "unhealthy",
+                            message=f"Agent system: {active_agents}/{total_agents} agents active",
+                            response_time_ms=1.0,
+                            metadata={
+                                "active_agents": active_agents,
+                                "total_agents": total_agents,
+                                "system_mode": settings.app_mode.value,
+                            },
+                        )
+                    )
+
+                except Exception as e:
+                    logger.warning("Agent health check failed", error=str(e))
+                    components.append(
+                        ComponentHealthResponse(
+                            name="agent_system",
+                            status="unhealthy",
+                            message=f"Agent health check failed: {str(e)}",
+                        )
+                    )
+
+            # Check task queue health if available
+            if hasattr(request.app.state, "task_queue"):
+                task_queue = request.app.state.task_queue
+                try:
+                    queue_stats = await task_queue.get_queue_statistics()
+                    queue_size = await task_queue.get_queue_size()
+
+                    components.append(
+                        ComponentHealthResponse(
+                            name="task_queue",
+                            status="healthy",
+                            message=f"Task queue operational: {queue_size} pending tasks",
+                            response_time_ms=1.0,
+                            metadata={
+                                "queue_size": queue_size,
+                                "statistics": queue_stats,
+                            },
+                        )
+                    )
+
+                except Exception as e:
+                    logger.warning("Task queue health check failed", error=str(e))
+                    components.append(
+                        ComponentHealthResponse(
+                            name="task_queue",
+                            status="unhealthy",
+                            message=f"Task queue health check failed: {str(e)}",
+                        )
+                    )
+
             # Determine overall status
             overall_status = "healthy" if all(c.status == "healthy" for c in components) else "unhealthy"
 

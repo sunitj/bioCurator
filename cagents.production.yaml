@@ -1,0 +1,156 @@
+# BioCurator Agent Configuration - Production Mode
+# Cloud models with balanced safety controls
+
+version: "1.0"
+system:
+  mode: "production"
+  cost_budget_per_hour: 50.0  # Configurable budget
+
+# Model configuration for production mode
+models:
+  provider: "cloud"
+
+  # Model assignments for agents
+  research_director:
+    primary: "claude-sonnet-4"
+    fallback: "gpt-4o"
+    temperature: 0.1
+    max_tokens: 4096
+    context_window: 200000
+
+  literature_scout:
+    primary: "gpt-4o"
+    fallback: "claude-sonnet-4"
+    temperature: 0.3
+    max_tokens: 2048
+    context_window: 128000
+
+  deep_reader:
+    primary: "claude-sonnet-4"
+    fallback: "gpt-4o"
+    temperature: 0.1
+    max_tokens: 8192
+    context_window: 200000
+
+  domain_specialist:
+    primary: "claude-sonnet-4"
+    fallback: "gpt-4-turbo"
+    temperature: 0.05
+    max_tokens: 4096
+    context_window: 200000
+
+  knowledge_weaver:
+    primary: "gpt-4o"
+    fallback: "claude-sonnet-4"
+    temperature: 0.4
+    max_tokens: 6144
+    context_window: 128000
+
+  memory_keeper:
+    primary: "claude-sonnet-4"
+    fallback: "gpt-4-turbo"
+    temperature: 0.0
+    max_tokens: 2048
+    context_window: 200000
+
+# Production safety configuration
+safety:
+  enforce_zero_cost: false
+  cloud_model_guard: false
+  cost_monitoring_enabled: true
+  budget_alerts_enabled: true
+  budget_alert_thresholds: [0.5, 0.8, 0.95]  # Alert at 50%, 80%, 95%
+
+# Agent overrides for production
+agents:
+  research_director:
+    enabled: true
+    max_concurrent_tasks: 10
+
+    safety:
+      max_requests_per_minute: 60
+      max_cost_budget_per_hour: 15.0
+
+  literature_scout:
+    enabled: true
+    max_concurrent_tasks: 5
+
+    safety:
+      max_requests_per_minute: 100
+      max_cost_budget_per_hour: 10.0
+
+  deep_reader:
+    enabled: true
+    max_concurrent_tasks: 3
+
+    safety:
+      max_requests_per_minute: 30
+      max_cost_budget_per_hour: 20.0
+
+  domain_specialist:
+    enabled: true
+    max_concurrent_tasks: 3
+
+    safety:
+      max_requests_per_minute: 20
+      max_cost_budget_per_hour: 10.0
+
+  knowledge_weaver:
+    enabled: true
+    max_concurrent_tasks: 5
+
+    safety:
+      max_requests_per_minute: 40
+      max_cost_budget_per_hour: 8.0
+
+  memory_keeper:
+    enabled: true
+    max_concurrent_tasks: 2
+
+    safety:
+      max_requests_per_minute: 15
+      max_cost_budget_per_hour: 5.0
+
+# Production coordination
+coordination:
+  max_parallel_agents: 6  # All agents can run
+  task_allocation_strategy: "least_loaded"
+  load_balancing_enabled: true
+  auto_scaling_enabled: true
+
+  # Auto-scaling configuration
+  auto_scaling:
+    min_agents: 2
+    max_agents: 8
+    scale_up_threshold: 0.8    # CPU/memory usage
+    scale_down_threshold: 0.3
+    cooldown_seconds: 300
+
+# Production monitoring
+monitoring:
+  health_check_interval_seconds: 60
+  debug_logging_enabled: false
+  trace_all_requests: false
+  model_performance_tracking: true
+  cost_tracking_enabled: true
+
+  # Production metrics
+  metrics:
+    cloud_model_latency: true
+    cost_per_request: true
+    api_rate_limits: true
+    production_errors: true
+    scaling_events: true
+
+# Alerting configuration
+alerts:
+  cost_budget_warning: true
+  high_error_rate: true
+  agent_failures: true
+  memory_system_issues: true
+
+  notification_channels:
+    - type: "prometheus"
+      endpoint: "http://localhost:9090"
+    - type: "webhook"
+      url: "${ALERT_WEBHOOK_URL}"

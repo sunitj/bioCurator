@@ -1,0 +1,217 @@
+# BioCurator Agent Configuration
+# Base configuration for multi-agent system
+
+version: "1.0"
+system:
+  name: "biocurator"
+  description: "Memory-augmented multi-agent system for scientific literature analysis"
+
+# Agent definitions
+agents:
+  research_director:
+    class: "src.agents.coordinator.ResearchDirectorAgent"
+    role: "Strategic coordination and workflow orchestration"
+    specialties:
+      - "project_planning"
+      - "quality_control"
+      - "synthesis"
+    memory_focus:
+      - "workflow_optimization"
+      - "success_patterns"
+    enabled: true
+    max_concurrent_tasks: 5
+
+    # Safety configuration
+    safety:
+      max_requests_per_minute: 30
+      circuit_breaker_threshold: 0.5
+      circuit_breaker_window: 300
+      circuit_breaker_min_volume: 10
+      burst_capacity: 60
+      refill_rate: 0.5
+
+    # Memory access permissions
+    memory_permissions:
+      knowledge_graph: "read_write"
+      vector_store: "read_write"
+      episodic_memory: "read_write"
+      working_memory: "read_write"
+      time_series: "write"
+
+  literature_scout:
+    class: "src.agents.literature_scout.LiteratureScoutAgent"
+    role: "Intelligent paper discovery and acquisition"
+    specialties:
+      - "search_strategy"
+      - "relevance_assessment"
+      - "trend_detection"
+    memory_focus:
+      - "search_effectiveness"
+      - "emerging_topics"
+    enabled: false  # Will be enabled in future PRs
+    max_concurrent_tasks: 3
+
+    safety:
+      max_requests_per_minute: 60
+      circuit_breaker_threshold: 0.4
+      circuit_breaker_window: 300
+      circuit_breaker_min_volume: 10
+      burst_capacity: 120
+      refill_rate: 1.0
+
+    memory_permissions:
+      knowledge_graph: "read_write"
+      vector_store: "read_write"
+      episodic_memory: "read_write"
+      working_memory: "read_write"
+      time_series: "write"
+
+  deep_reader:
+    class: "src.agents.deep_reader.DeepReaderAgent"
+    role: "Comprehensive content analysis and extraction"
+    specialties:
+      - "technical_analysis"
+      - "methodology_evaluation"
+      - "claim_extraction"
+    memory_focus:
+      - "domain_knowledge"
+      - "analytical_patterns"
+    enabled: false  # Will be enabled in future PRs
+    max_concurrent_tasks: 2
+
+    safety:
+      max_requests_per_minute: 20
+      circuit_breaker_threshold: 0.6
+      circuit_breaker_window: 300
+      circuit_breaker_min_volume: 5
+      burst_capacity: 40
+      refill_rate: 0.33
+
+    memory_permissions:
+      knowledge_graph: "read_write"
+      vector_store: "read_write"
+      episodic_memory: "read_write"
+      working_memory: "read_write"
+      time_series: "write"
+
+  domain_specialist:
+    class: "src.agents.domain_specialist.DomainSpecialistAgent"
+    role: "Scientific validation and context assessment"
+    specialties:
+      - "fact_checking"
+      - "domain_expertise"
+      - "credibility_assessment"
+    memory_focus:
+      - "scientific_consensus"
+      - "contradiction_tracking"
+    enabled: false  # Will be enabled in future PRs
+    max_concurrent_tasks: 2
+
+    safety:
+      max_requests_per_minute: 15
+      circuit_breaker_threshold: 0.3
+      circuit_breaker_window: 300
+      circuit_breaker_min_volume: 5
+      burst_capacity: 30
+      refill_rate: 0.25
+
+    memory_permissions:
+      knowledge_graph: "read_write"
+      vector_store: "read"
+      episodic_memory: "read_write"
+      working_memory: "read_write"
+      time_series: "write"
+
+  knowledge_weaver:
+    class: "src.agents.knowledge_weaver.KnowledgeWeaverAgent"
+    role: "Synthesis and connection identification"
+    specialties:
+      - "pattern_recognition"
+      - "narrative_construction"
+      - "gap_identification"
+    memory_focus:
+      - "conceptual_relationships"
+      - "research_trajectories"
+    enabled: false  # Will be enabled in future PRs
+    max_concurrent_tasks: 3
+
+    safety:
+      max_requests_per_minute: 25
+      circuit_breaker_threshold: 0.4
+      circuit_breaker_window: 300
+      circuit_breaker_min_volume: 8
+      burst_capacity: 50
+      refill_rate: 0.42
+
+    memory_permissions:
+      knowledge_graph: "read_write"
+      vector_store: "read_write"
+      episodic_memory: "read_write"
+      working_memory: "read_write"
+      time_series: "write"
+
+  memory_keeper:
+    class: "src.agents.memory_keeper.MemoryKeeperAgent"
+    role: "Memory management and knowledge curation"
+    specialties:
+      - "information_architecture"
+      - "conflict_resolution"
+      - "temporal_tracking"
+    memory_focus:
+      - "knowledge_graph_optimization"
+      - "learning_patterns"
+    enabled: false  # Will be enabled in future PRs
+    max_concurrent_tasks: 1
+
+    safety:
+      max_requests_per_minute: 10
+      circuit_breaker_threshold: 0.2
+      circuit_breaker_window: 300
+      circuit_breaker_min_volume: 3
+      burst_capacity: 20
+      refill_rate: 0.17
+
+    memory_permissions:
+      knowledge_graph: "admin"
+      vector_store: "admin"
+      episodic_memory: "admin"
+      working_memory: "admin"
+      time_series: "admin"
+
+# Communication configuration
+communication:
+  protocol: "async_message_passing"
+  timeout_seconds: 30
+  retry_attempts: 3
+  retry_backoff_seconds: 2.0
+  max_message_size: 10485760  # 10MB
+
+  # Queue configuration
+  task_queue:
+    backend: "postgresql"
+    max_queue_size: 1000
+    task_timeout_seconds: 300
+    retry_delay_seconds: 60
+    max_retries: 3
+
+# Coordination configuration
+coordination:
+  max_parallel_agents: 3
+  task_allocation_strategy: "round_robin"  # round_robin, least_loaded, priority
+  load_balancing_enabled: true
+  auto_scaling_enabled: false
+
+# Monitoring configuration
+monitoring:
+  health_check_interval_seconds: 30
+  performance_metrics_enabled: true
+  behavior_monitoring_enabled: true
+  audit_logging_enabled: true
+
+  # Metrics collection
+  metrics:
+    task_completion_rate: true
+    agent_response_time: true
+    error_rate: true
+    memory_usage: true
+    coordination_efficiency: true

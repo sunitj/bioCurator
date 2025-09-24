@@ -9,12 +9,16 @@ BioCurator is a memory-augmented multi-agent system for scientific literature cu
 ## Architecture
 
 ### Core Agent Ecosystem
-- **Research Director**: Strategic coordination using Claude Sonnet 4
-- **Literature Scout**: Paper discovery and acquisition using GPT-4o  
-- **Deep Reader**: Content analysis and extraction using Claude Sonnet 4
-- **Domain Specialist**: Scientific validation using Claude Sonnet 4 + specialized models
-- **Knowledge Weaver**: Synthesis and connection identification using GPT-4o
-- **Memory Keeper**: Memory management and curation using Claude Sonnet 4
+- **Research Director**: Strategic coordination and workflow orchestration (✅ **PR #3 - IMPLEMENTED**)
+  - Multi-agent workflow orchestration
+  - Task allocation and load balancing
+  - Quality control and result synthesis
+  - Inter-agent communication coordination
+- **Literature Scout**: Paper discovery and acquisition using GPT-4o (🚧 Future PR #6)
+- **Deep Reader**: Content analysis and extraction using Claude Sonnet 4 (🚧 Future PR #7)
+- **Domain Specialist**: Scientific validation using Claude Sonnet 4 + specialized models (🚧 Future PR #10)
+- **Knowledge Weaver**: Synthesis and connection identification using GPT-4o (🚧 Future PR #11)
+- **Memory Keeper**: Memory management and curation using Claude Sonnet 4 (🚧 Future PR #12)
 
 ### Memory Systems
 - **Neo4j**: Conceptual knowledge graph for papers, authors, concepts, methods, findings
@@ -23,12 +27,13 @@ BioCurator is a memory-augmented multi-agent system for scientific literature cu
 - **Redis**: Working memory for active analysis contexts
 - **SQLite**: Procedural memory for workflow patterns
 
-### Safety Architecture
+### Safety Architecture (✅ **PR #3 - FULLY INTEGRATED**)
 - **Multi-Mode Operation**: Development (local models), Production (cloud models), Hybrid
-- **Circuit Breakers**: Prevent infinite loops and cascading failures
-- **Rate Limiting**: Control request frequency
-- **Cost Tracking**: Real-time budget monitoring and enforcement
-- **Behavior Monitoring**: Anomaly detection for rogue agent behavior
+- **Circuit Breakers**: Per-agent circuit breakers with configurable thresholds (closed/open/half-open states)
+- **Rate Limiting**: Token bucket algorithm with burst capacity and refill rates
+- **Cost Tracking**: Real-time budget monitoring and enforcement with pluggable price catalogs
+- **Behavior Monitoring**: Anomaly detection for rogue agent behavior with statistical analysis
+- **Safety Event Bus**: Comprehensive safety event logging and alerting system
 
 ## Development Setup
 
@@ -182,6 +187,43 @@ python scripts/generate_embeddings.py
 
 # Benchmark memory performance (future)
 python scripts/benchmark_memory.py
+```
+
+### Agent System Management (✅ **PR #3 - NEW**)
+```bash
+# Run agent workflow examples
+python examples/basic_workflow.py      # Basic multi-agent coordination demo
+python examples/safety_demo.py        # Safety controls demonstration
+
+# Agent configuration files
+cagents.yaml                          # Base agent configuration
+cagents.development.yaml              # Development mode overrides (local models)
+cagents.production.yaml               # Production mode overrides (cloud models)
+
+# Check agent health through API
+curl http://localhost:8080/health | jq '.components[] | select(.name | startswith("agent"))'
+
+# Agent registry and coordination
+python -c "
+import asyncio
+from src.config.loader import load_config
+from src.agents.registry import AgentRegistry
+from src.memory.manager import DefaultMemoryManager
+
+async def check_agents():
+    config = load_config()
+    async with DefaultMemoryManager(config.database) as memory_manager:
+        registry = AgentRegistry(config, memory_manager)
+        await registry.load_configuration(['cagents.yaml', 'cagents.development.yaml'])
+        # Registry operations...
+asyncio.run(check_agents())
+"
+
+# Task queue operations (when implemented with full database)
+# python -c "from src.coordination.task_queue import TaskQueue; ..."
+
+# Agent performance monitoring
+# Access through /health endpoint or agent monitor API
 ```
 
 ## Development Workflow

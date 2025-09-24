@@ -1,0 +1,103 @@
+# BioCurator Agent Configuration - Development Mode
+# Local models with zero cost and strict safety controls
+
+version: "1.0"
+system:
+  mode: "development"
+  cost_budget_per_hour: 0.0  # Zero cost budget enforced
+
+# Model configuration for development mode
+models:
+  provider: "ollama"
+  ollama_host: "http://localhost:11434"
+
+  # Model assignments for agents
+  research_director:
+    primary: "deepseek-r1:32b"    # Best reasoning for coordination
+    fallback: "llama3.1:8b"      # Fast fallback
+    temperature: 0.1
+    max_tokens: 2048
+    context_window: 32768
+
+  literature_scout:
+    primary: "llama3.1:8b"       # Fast general purpose
+    fallback: "qwen2.5:7b"       # Technical backup
+    temperature: 0.3
+    max_tokens: 1024
+    context_window: 8192
+
+  deep_reader:
+    primary: "deepseek-r1:32b"   # Best for analysis
+    fallback: "qwen2.5:7b"       # Technical backup
+    temperature: 0.1
+    max_tokens: 4096
+    context_window: 32768
+
+  domain_specialist:
+    primary: "deepseek-r1:32b"   # Best reasoning
+    fallback: "qwen2.5:7b"       # Domain knowledge
+    temperature: 0.05
+    max_tokens: 2048
+    context_window: 32768
+
+  knowledge_weaver:
+    primary: "llama3.1:8b"       # Pattern recognition
+    fallback: "qwen2.5:7b"       # Synthesis backup
+    temperature: 0.4
+    max_tokens: 3072
+    context_window: 8192
+
+  memory_keeper:
+    primary: "qwen2.5:7b"        # Technical precision
+    fallback: "llama3.1:8b"      # General backup
+    temperature: 0.0
+    max_tokens: 1024
+    context_window: 4096
+
+# Enhanced safety for development mode
+safety:
+  enforce_zero_cost: true
+  cloud_model_guard: true  # Hard block cloud models
+  max_requests_per_session: 500
+  session_timeout_hours: 2
+
+# Agent overrides for development
+agents:
+  research_director:
+    safety:
+      max_requests_per_minute: 20  # More conservative
+      max_cost_budget_per_hour: 0.0
+
+  literature_scout:
+    enabled: false  # Disable until PR #6
+
+  deep_reader:
+    enabled: false  # Disable until PR #7
+
+  domain_specialist:
+    enabled: false  # Disable until PR #10
+
+  knowledge_weaver:
+    enabled: false  # Disable until PR #11
+
+  memory_keeper:
+    enabled: false  # Future implementation
+
+# Development-specific coordination
+coordination:
+  max_parallel_agents: 1  # Start simple
+  task_allocation_strategy: "single_agent"  # Only research_director
+  load_balancing_enabled: false
+
+# Enhanced monitoring for development
+monitoring:
+  health_check_interval_seconds: 10  # More frequent
+  debug_logging_enabled: true
+  trace_all_requests: true
+  model_performance_tracking: true
+
+  # Development metrics
+  metrics:
+    local_model_latency: true
+    ollama_health_status: true
+    development_mode_violations: true

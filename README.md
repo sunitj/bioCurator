@@ -77,10 +77,35 @@ docker-compose -f docker-compose.yml -f docker-compose.production.yml up
 ## Key Features
 
 - **Multi-Agent Coordination**: Specialized agents for literature discovery, analysis, and synthesis
+  - Research Director for workflow orchestration
+  - Literature Scout, Deep Reader, Domain Specialist, Knowledge Weaver (future PRs)
+  - Async message passing with request/response patterns
+  - Persistent task queue with dependency management and retry logic
+
 - **Multi-Modal Memory**: Knowledge graph, vector embeddings, episodic memory, and procedural patterns
+  - Neo4j knowledge graph with concept relationships
+  - Qdrant vector store for semantic search
+  - PostgreSQL episodic memory for interaction histories
+  - Redis working memory for active contexts
+  - InfluxDB time-series metrics (optional)
+
 - **Safety-First Design**: Circuit breakers, rate limiting, cost tracking, and anomaly detection
+  - Per-agent circuit breakers with configurable thresholds
+  - Rate limiting with token bucket algorithm
+  - Real-time cost tracking and budget enforcement
+  - Behavior monitoring with anomaly detection
+  - Comprehensive safety event logging
+
 - **Development Mode**: Free local model operation with Ollama (DeepSeek-R1, Llama 3.1, Qwen 2.5)
+  - Zero cost budget enforcement
+  - Hard guard against cloud model access
+  - Local model optimization with quality bridging
+
 - **Production Ready**: Cloud model integration with comprehensive monitoring and observability
+  - Claude Sonnet 4 and GPT-4o model support
+  - Prometheus metrics integration
+  - Health monitoring with agent status reporting
+  - Auto-scaling and load balancing capabilities
 
 ## Development
 
@@ -121,8 +146,15 @@ make build
 # View metrics
 curl http://localhost:9090/metrics
 
-# Check health
+# Check health (includes agent status)
 curl http://localhost:8080/health
+
+# Run agent workflow examples
+python examples/basic_workflow.py     # Basic multi-agent workflow
+python examples/safety_demo.py       # Safety controls demonstration
+
+# Agent system health
+curl http://localhost:8080/health | jq '.components[] | select(.name | startswith("agent"))'
 ```
 
 ## Documentation
