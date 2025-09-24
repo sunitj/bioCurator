@@ -21,16 +21,21 @@ export APP_MODE=development
 cp .env.example .env
 # Edit .env to set JUPYTER_TOKEN and other configurations
 
-# Run with local models (Ollama)
-docker-compose -f docker-compose.yml -f docker-compose.development.yml up
+# Run with local models (Ollama) - services start in dependency order
+docker-compose -f docker-compose.yml -f docker-compose.development.yml up -d
 
-# Access services:
-# - BioCurator API: http://localhost:8080
-# - Jupyter Lab: http://localhost:8888 (token: see JUPYTER_TOKEN in .env or default: biocurator-dev)
-# - Ollama API: http://localhost:11434
+# Wait for all services to be healthy (takes ~30-60 seconds)
+docker-compose ps  # Check status
 
-# Check system health
-make health
+# Access services (replace localhost with your server IP if remote):
+# - BioCurator API: http://localhost:8080/
+# - Health Status: http://localhost:8080/health/
+# - Neo4j Browser: http://localhost:7474/ (user: neo4j, password: dev_password)
+# - Jupyter Lab: http://localhost:8888/ (token: biocurator-dev or JUPYTER_TOKEN)
+# - Ollama API: http://localhost:11434/
+
+# Verify system health
+curl -s http://localhost:8080/health/ | python -m json.tool
 ```
 
 ### Production Mode (Cloud Models)
@@ -135,6 +140,38 @@ The project maintains:
 - >=85% coverage for safety-critical modules
 - Comprehensive integration tests
 - Performance benchmarks
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Services fail to start or restart continuously**
+   - Check Docker logs: `docker logs <container-name>`
+   - Neo4j memory settings require specific format in Docker Compose
+   - Ensure all required ports are available: 8080, 7474, 7687, 6333, 5432, 6379, 8086
+
+2. **Application can't connect to databases**
+   - Verify environment variables are set in docker-compose files
+   - Services must use container names (e.g., `redis`, `postgres`) not `localhost`
+   - Check that all services are healthy: `docker-compose ps`
+
+3. **Health endpoint shows "unhealthy" but system works**
+   - This is expected if optional backends (like InfluxDB) aren't initialized
+   - Check individual component status in the health response
+   - Only required backends (Redis, PostgreSQL, Neo4j, Qdrant) need to be healthy
+
+4. **Cannot access endpoints from browser (EC2/Remote)**
+   - Ensure security groups allow inbound traffic on required ports
+   - Use server's public IP instead of localhost
+   - Consider SSH tunneling for secure development access
+
+5. **Fresh start after issues**
+   ```bash
+   docker-compose down
+   docker volume rm $(docker volume ls -q | grep biocurator)  # Removes all data
+   docker-compose build --no-cache app
+   docker-compose -f docker-compose.yml -f docker-compose.development.yml up -d
+   ```
 
 ## License
 

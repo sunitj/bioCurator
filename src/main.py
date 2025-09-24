@@ -1,6 +1,7 @@
 """BioCurator main application entry point."""
 
 import sys
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
@@ -9,10 +10,39 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .health.endpoints import create_health_router
 from .logging import get_logger
+from .memory.manager import DefaultMemoryManager
 from .metrics.prometheus import create_metrics_router
+from .safety.event_bus import get_safety_event_bus
 
 # Configure logging
 logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events."""
+    # Startup
+    logger.info("Initializing BioCurator application")
+
+    # Initialize memory system
+    try:
+        await app.state.memory_manager.initialize()
+        logger.info("Memory system initialized successfully")
+    except Exception as e:
+        logger.error("Failed to initialize memory system", error=str(e))
+        raise
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down BioCurator application")
+
+    # Shutdown memory system
+    try:
+        await app.state.memory_manager.close()
+        logger.info("Memory system shut down successfully")
+    except Exception as e:
+        logger.error("Error during memory system shutdown", error=str(e))
 
 
 def create_app() -> FastAPI:
@@ -23,7 +53,12 @@ def create_app() -> FastAPI:
         description="Memory-augmented multi-agent system for scientific literature analysis",
         version="0.1.0",
         debug=settings.monitoring.enable_debug,
+        lifespan=lifespan,
     )
+
+    # Initialize memory manager
+    memory_manager = DefaultMemoryManager(settings.database, get_safety_event_bus())
+    app.state.memory_manager = memory_manager
 
     # Add middleware (ContextMiddleware will be added in PR #1.5)
     app.add_middleware(
@@ -48,6 +83,7 @@ def create_app() -> FastAPI:
             "mode": settings.app_mode.value,
             "status": "running",
         }
+
 
     return app
 

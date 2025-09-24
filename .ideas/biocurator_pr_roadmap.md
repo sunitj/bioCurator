@@ -173,10 +173,10 @@ Review Time: 3 days → Actual: 4+ days
 Status: ✅ COMPLETED
 
 Files:
-  - docker-compose.memory.yml (memory service definitions)
+  - docker-compose.yml (integrated memory services)
   - src/memory/__init__.py (memory module initialization)
   - src/memory/interfaces.py (abstract base classes - 338 LOC)
-  - src/memory/manager.py (memory manager - 234 LOC)
+  - src/memory/manager.py (memory manager - 253 LOC)
   - src/memory/neo4j_client.py (knowledge graph - 369 LOC)
   - src/memory/qdrant_client.py (vector database - 371 LOC)
   - src/memory/postgres_client.py (episodic memory - 368 LOC)
@@ -187,12 +187,12 @@ Files:
   - docs/adr/0005-memory-system-architecture.md (ADR documentation)
 
 Dependencies:
-  - Neo4j container (knowledge graph)
-  - Qdrant vector database
-  - PostgreSQL database (episodic memory)
-  - Redis cache (working memory)
-  - InfluxDB (time-series metrics) - Added
-  - Python database clients (7 new dependencies)
+  - Neo4j 5.15 container (knowledge graph)
+  - Qdrant v1.15.4 vector database
+  - PostgreSQL 16 database (episodic memory)
+  - Redis 7 cache (working memory)
+  - InfluxDB 2.7 (time-series metrics)
+  - Python database clients (7 new dependencies in uv.lock)
 
 Testing:
   - All memory backends connect successfully ✅
@@ -201,17 +201,26 @@ Testing:
   - Memory system health checks ✅
   - Concurrent health monitoring ✅
   - Safety integration tests ✅
+  - Docker Compose orchestration ✅
+  - Service dependencies with health conditions ✅
 
 Documentation:
   - Memory architecture overview ✅
   - Backend configuration guide ✅
   - API reference for memory interfaces ✅
   - ADR-0005 for architectural decisions ✅
+  - Deployment troubleshooting guide ✅
 
-Key Learnings:
-  - Async/await complexity higher than expected
-  - Connection pooling critical for production
-  - Health check concurrency pattern valuable
+Key Implementation Learnings:
+  - Async/await complexity higher than expected (7x LOC multiplier)
+  - Neo4j 5.15 configuration syntax requires specific property names
+  - Docker service dependencies critical for startup order
+  - Environment variable mapping essential for container networking
+  - Graceful degradation patterns for optional backends (InfluxDB)
+  - FastAPI lifespan pattern replaces deprecated @app.on_event
+  - Safety event bus integration requires careful import management
+  - Health check aggregation affects overall system status reporting
+  - Connection pooling critical for production workloads
   - Type hints with Python 3.10+ union syntax cleaner
 ```
 

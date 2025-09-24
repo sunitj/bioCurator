@@ -1,5 +1,6 @@
 """Qdrant client for vector operations."""
 
+import asyncio
 import time
 from typing import Any
 from uuid import uuid4
@@ -37,32 +38,48 @@ class QdrantClient(VectorBackend):
             logger.warning("Qdrant client already connected")
             return
 
-        try:
-            logger.info("Connecting to Qdrant", url=self.url)
+        logger.info("Connecting to Qdrant", url=self.url)
 
-            # Initialize client with HTTP API
-            self._client = AsyncQdrantClient(
-                url=self.url,
-                timeout=self.timeout,
-                prefer_grpc=self.prefer_grpc,
+        # Initialize client
+        self._client = AsyncQdrantClient(
+            url=self.url,
+            timeout=self.timeout,
+            prefer_grpc=self.prefer_grpc,
+        )
+
+        # Retry connectivity with exponential backoff using a simple list call
+        max_attempts = 8
+        delay = 0.5
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                collections = await self._client.get_collections()
+                self._connected = True
+                logger.info(
+                    "Qdrant connection established successfully",
+                    collections=len(getattr(collections, "collections", []) or []),
+                )
+                return
+            except qdrant_exceptions.UnexpectedResponse as e:
+                last_error = e
+            except Exception as e:
+                last_error = e
+
+            if attempt == max_attempts:
+                break
+
+            logger.warning(
+                "Qdrant connection attempt failed; retrying",
+                error=str(last_error),
+                attempt=attempt,
+                next_delay_ms=int(delay * 1000),
             )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 10.0)
 
-            # Verify connectivity by getting cluster info
-            cluster_info = await self._client.get_cluster_info()
-            self._connected = True
-
-            logger.info(
-                "Qdrant connection established successfully",
-                peer_id=cluster_info.peer_id,
-                qdrant_version=cluster_info.qdrant_version
-            )
-
-        except qdrant_exceptions.UnexpectedResponse as e:
-            logger.error("Qdrant connection failed", error=str(e))
-            raise
-        except Exception as e:
-            logger.error("Unexpected error connecting to Qdrant", error=str(e))
-            raise
+        if last_error:
+            logger.error("Qdrant connection failed", error=str(last_error))
+            raise last_error
 
     async def disconnect(self) -> None:
         """Close connection to Qdrant."""
@@ -78,16 +95,12 @@ class QdrantClient(VectorBackend):
     async def health_check(self) -> HealthStatus:
         """Check the health status of Qdrant."""
         if not self._connected or not self._client:
-            return HealthStatus(
-                is_healthy=False,
-                message="Not connected to Qdrant"
-            )
+            return HealthStatus(is_healthy=False, message="Not connected to Qdrant")
 
         try:
             start_time = time.time()
 
-            # Check health and get cluster info
-            await self._client.get_cluster_info()
+            # Check health by listing collections
             collections = await self._client.get_collections()
 
             latency_ms = (time.time() - start_time) * 1000
@@ -96,21 +109,15 @@ class QdrantClient(VectorBackend):
                 is_healthy=True,
                 message="Qdrant is healthy",
                 latency_ms=latency_ms,
-                connection_count=len(collections.collections)
+                connection_count=len(collections.collections),
             )
 
         except qdrant_exceptions.UnexpectedResponse as e:
             logger.warning("Qdrant health check failed", error=str(e))
-            return HealthStatus(
-                is_healthy=False,
-                message=f"Qdrant unavailable: {str(e)}"
-            )
+            return HealthStatus(is_healthy=False, message=f"Qdrant unavailable: {str(e)}")
         except Exception as e:
             logger.error("Qdrant health check error", error=str(e))
-            return HealthStatus(
-                is_healthy=False,
-                message=f"Health check error: {str(e)}"
-            )
+            return HealthStatus(is_healthy=False, message=f"Health check error: {str(e)}")
 
     async def ping(self) -> float:
         """Ping Qdrant and return latency in milliseconds."""
@@ -120,17 +127,14 @@ class QdrantClient(VectorBackend):
         start_time = time.time()
 
         try:
-            await self._client.get_cluster_info()
+            await self._client.get_collections()
             return (time.time() - start_time) * 1000
         except Exception as e:
             logger.error("Qdrant ping failed", error=str(e))
             raise
 
     async def create_collection(
-        self,
-        collection_name: str,
-        vector_size: int,
-        distance_metric: str = "cosine"
+        self, collection_name: str, vector_size: int, distance_metric: str = "cosine"
     ) -> bool:
         """Create a new vector collection."""
         if not self._connected or not self._client:
@@ -173,7 +177,7 @@ class QdrantClient(VectorBackend):
                 "Created Qdrant collection",
                 collection=collection_name,
                 vector_size=vector_size,
-                distance=distance_metric
+                distance=distance_metric,
             )
             return True
 
@@ -189,7 +193,7 @@ class QdrantClient(VectorBackend):
         collection_name: str,
         vectors: list[list[float]],
         payloads: list[dict[str, Any]] | None = None,
-        ids: list[str] | None = None
+        ids: list[str] | None = None,
     ) -> list[str]:
         """Insert or update vectors in collection."""
         if not self._connected or not self._client:
@@ -213,9 +217,7 @@ class QdrantClient(VectorBackend):
             points = []
             for i, vector in enumerate(vectors):
                 point = models.PointStruct(
-                    id=ids[i],
-                    vector=vector,
-                    payload=payloads[i] if payloads else {}
+                    id=ids[i], vector=vector, payload=payloads[i] if payloads else {}
                 )
                 points.append(point)
 
@@ -223,14 +225,10 @@ class QdrantClient(VectorBackend):
             await self._client.upsert(
                 collection_name=collection_name,
                 points=points,
-                wait=True  # Wait for indexing to complete
+                wait=True,  # Wait for indexing to complete
             )
 
-            logger.debug(
-                "Upserted vectors",
-                collection=collection_name,
-                count=len(vectors)
-            )
+            logger.debug("Upserted vectors", collection=collection_name, count=len(vectors))
             return ids
 
         except qdrant_exceptions.UnexpectedResponse as e:
@@ -246,7 +244,7 @@ class QdrantClient(VectorBackend):
         query_vector: list[float],
         limit: int = 10,
         score_threshold: float | None = None,
-        filter_conditions: dict[str, Any] | None = None
+        filter_conditions: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Search for similar vectors."""
         if not self._connected or not self._client:
@@ -268,10 +266,8 @@ class QdrantClient(VectorBackend):
             if filter_conditions:
                 search_params["query_filter"] = models.Filter(
                     must=[
-                        models.FieldCondition(
-                            key=key,
-                            match=models.MatchValue(value=value)
-                        ) for key, value in filter_conditions.items()
+                        models.FieldCondition(key=key, match=models.MatchValue(value=value))
+                        for key, value in filter_conditions.items()
                     ]
                 )
 
@@ -285,7 +281,7 @@ class QdrantClient(VectorBackend):
                     "id": hit.id,
                     "score": hit.score,
                     "vector": hit.vector,
-                    "payload": hit.payload or {}
+                    "payload": hit.payload or {},
                 }
                 results.append(result)
 
@@ -293,7 +289,7 @@ class QdrantClient(VectorBackend):
                 "Vector search completed",
                 collection=collection_name,
                 results_count=len(results),
-                limit=limit
+                limit=limit,
             )
             return results
 
@@ -304,11 +300,7 @@ class QdrantClient(VectorBackend):
             logger.error("Unexpected error searching vectors", error=str(e))
             raise
 
-    async def delete_vectors(
-        self,
-        collection_name: str,
-        vector_ids: list[str]
-    ) -> bool:
+    async def delete_vectors(self, collection_name: str, vector_ids: list[str]) -> bool:
         """Delete vectors from collection."""
         if not self._connected or not self._client:
             raise RuntimeError("Not connected to Qdrant")
@@ -319,17 +311,11 @@ class QdrantClient(VectorBackend):
         try:
             await self._client.delete(
                 collection_name=collection_name,
-                points_selector=models.PointIdsList(
-                    points=vector_ids
-                ),
-                wait=True
+                points_selector=models.PointIdsList(points=vector_ids),
+                wait=True,
             )
 
-            logger.debug(
-                "Deleted vectors",
-                collection=collection_name,
-                count=len(vector_ids)
-            )
+            logger.debug("Deleted vectors", collection=collection_name, count=len(vector_ids))
             return True
 
         except qdrant_exceptions.UnexpectedResponse as e:
@@ -357,7 +343,7 @@ class QdrantClient(VectorBackend):
                     "vector_size": collection_info.config.params.vectors.size,
                     "distance": collection_info.config.params.vectors.distance.value,
                 },
-                "optimizer_status": collection_info.optimizer_status
+                "optimizer_status": collection_info.optimizer_status,
             }
 
             logger.debug("Retrieved collection info", collection=collection_name)

@@ -7,7 +7,7 @@ from sqlalchemy import JSON, Column, DateTime, String, select
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.pool import QueuePool
+# Use default async-compatible pool; do not import sync QueuePool
 
 from ..logging import get_logger
 from .interfaces import EpisodicBackend, HealthStatus
@@ -42,7 +42,9 @@ class PostgresClient(EpisodicBackend):
             config: Database configuration containing PostgreSQL settings
         """
         super().__init__(config)
-        self.url = config.get("postgres_url", "postgresql://user:password@localhost:5432/biocurator")
+        self.url = config.get(
+            "postgres_url", "postgresql://user:password@localhost:5432/biocurator"
+        )
 
         # Connection pool settings
         self.pool_size = config.get("postgres_pool_size", 20)
@@ -69,7 +71,6 @@ class PostgresClient(EpisodicBackend):
             # Create async engine with connection pool
             self._engine = create_async_engine(
                 async_url,
-                poolclass=QueuePool,
                 pool_size=self.pool_size,
                 max_overflow=self.max_overflow,
                 pool_timeout=self.pool_timeout,
@@ -79,9 +80,7 @@ class PostgresClient(EpisodicBackend):
 
             # Create async session factory
             self._session_factory = async_sessionmaker(
-                bind=self._engine,
-                class_=AsyncSession,
-                expire_on_commit=False
+                bind=self._engine, class_=AsyncSession, expire_on_commit=False
             )
 
             # Test connection and create tables
@@ -112,10 +111,7 @@ class PostgresClient(EpisodicBackend):
     async def health_check(self) -> HealthStatus:
         """Check the health status of PostgreSQL."""
         if not self._connected or not self._engine:
-            return HealthStatus(
-                is_healthy=False,
-                message="Not connected to PostgreSQL"
-            )
+            return HealthStatus(is_healthy=False, message="Not connected to PostgreSQL")
 
         try:
             start_time = time.time()
@@ -130,32 +126,25 @@ class PostgresClient(EpisodicBackend):
 
                     # Get connection pool info
                     pool = self._engine.pool
-                    connection_count = pool.checkedout() if hasattr(pool, 'checkedout') else None
+                    connection_count = pool.checkedout() if hasattr(pool, "checkedout") else None
 
                     return HealthStatus(
                         is_healthy=True,
                         message="PostgreSQL is healthy",
                         latency_ms=latency_ms,
-                        connection_count=connection_count
+                        connection_count=connection_count,
                     )
                 else:
                     return HealthStatus(
-                        is_healthy=False,
-                        message="PostgreSQL health check query failed"
+                        is_healthy=False, message="PostgreSQL health check query failed"
                     )
 
         except OperationalError as e:
             logger.warning("PostgreSQL health check failed", error=str(e))
-            return HealthStatus(
-                is_healthy=False,
-                message=f"PostgreSQL unavailable: {str(e)}"
-            )
+            return HealthStatus(is_healthy=False, message=f"PostgreSQL unavailable: {str(e)}")
         except Exception as e:
             logger.error("PostgreSQL health check error", error=str(e))
-            return HealthStatus(
-                is_healthy=False,
-                message=f"Health check error: {str(e)}"
-            )
+            return HealthStatus(is_healthy=False, message=f"Health check error: {str(e)}")
 
     async def ping(self) -> float:
         """Ping PostgreSQL and return latency in milliseconds."""
@@ -179,7 +168,7 @@ class PostgresClient(EpisodicBackend):
         action: str,
         context: dict[str, Any],
         outcome: dict[str, Any],
-        timestamp: float | None = None
+        timestamp: float | None = None,
     ) -> bool:
         """Store an agent episode."""
         if not self._connected or not self._session_factory:
@@ -196,17 +185,14 @@ class PostgresClient(EpisodicBackend):
                     context=context,
                     outcome=outcome,
                     timestamp=episode_timestamp,
-                    created_at=time.time()
+                    created_at=time.time(),
                 )
 
                 session.add(episode)
                 await session.commit()
 
                 logger.debug(
-                    "Stored agent episode",
-                    episode_id=episode_id,
-                    agent_id=agent_id,
-                    action=action
+                    "Stored agent episode", episode_id=episode_id, agent_id=agent_id, action=action
                 )
                 return True
 
@@ -222,7 +208,7 @@ class PostgresClient(EpisodicBackend):
         agent_id: str | None = None,
         action_type: str | None = None,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Retrieve episodes matching criteria."""
         if not self._connected or not self._session_factory:
@@ -256,7 +242,7 @@ class PostgresClient(EpisodicBackend):
                         "outcome": episode.outcome,
                         "timestamp": episode.timestamp,
                         "created_at": episode.created_at,
-                        "updated_at": episode.updated_at
+                        "updated_at": episode.updated_at,
                     }
                     episode_dicts.append(episode_dict)
 
@@ -271,10 +257,7 @@ class PostgresClient(EpisodicBackend):
             raise
 
     async def get_agent_history(
-        self,
-        agent_id: str,
-        hours_back: int = 24,
-        action_types: list[str] | None = None
+        self, agent_id: str, hours_back: int = 24, action_types: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Get recent history for an agent."""
         if not self._connected or not self._session_factory:
@@ -286,8 +269,7 @@ class PostgresClient(EpisodicBackend):
                 time_threshold = time.time() - (hours_back * 3600)
 
                 query = select(AgentEpisode).where(
-                    AgentEpisode.agent_id == agent_id,
-                    AgentEpisode.timestamp >= time_threshold
+                    AgentEpisode.agent_id == agent_id, AgentEpisode.timestamp >= time_threshold
                 )
 
                 # Filter by action types if specified
@@ -310,7 +292,7 @@ class PostgresClient(EpisodicBackend):
                         "outcome": episode.outcome,
                         "timestamp": episode.timestamp,
                         "created_at": episode.created_at,
-                        "updated_at": episode.updated_at
+                        "updated_at": episode.updated_at,
                     }
                     history.append(episode_dict)
 
@@ -318,7 +300,7 @@ class PostgresClient(EpisodicBackend):
                     "Retrieved agent history",
                     agent_id=agent_id,
                     hours_back=hours_back,
-                    count=len(history)
+                    count=len(history),
                 )
                 return history
 
@@ -329,11 +311,7 @@ class PostgresClient(EpisodicBackend):
             logger.error("Unexpected error getting agent history", error=str(e))
             raise
 
-    async def update_episode_outcome(
-        self,
-        episode_id: str,
-        outcome: dict[str, Any]
-    ) -> bool:
+    async def update_episode_outcome(self, episode_id: str, outcome: dict[str, Any]) -> bool:
         """Update the outcome of an existing episode."""
         if not self._connected or not self._session_factory:
             raise RuntimeError("Not connected to PostgreSQL")

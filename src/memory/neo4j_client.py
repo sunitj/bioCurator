@@ -1,5 +1,6 @@
 """Neo4j client for knowledge graph operations."""
 
+import asyncio
 import time
 from typing import Any
 from uuid import uuid4
@@ -47,33 +48,65 @@ class Neo4jClient(KnowledgeGraphBackend):
             logger.warning("Neo4j client already connected")
             return
 
-        try:
-            logger.info("Connecting to Neo4j", uri=self.uri)
+        # Retry connection with exponential backoff to tolerate startup races
+        max_attempts = 8
+        delay = 0.5
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info("Connecting to Neo4j", uri=self.uri, attempt=attempt)
 
-            self._driver = AsyncGraphDatabase.driver(
-                self.uri,
-                auth=(self.user, self.password),
-                max_connection_lifetime=self.max_connection_lifetime,
-                max_connection_pool_size=self.max_connection_pool_size,
-                connection_timeout=self.connection_timeout,
-                encrypted=False,  # Development mode
-            )
+                self._driver = AsyncGraphDatabase.driver(
+                    self.uri,
+                    auth=(self.user, self.password),
+                    max_connection_lifetime=self.max_connection_lifetime,
+                    max_connection_pool_size=self.max_connection_pool_size,
+                    connection_timeout=self.connection_timeout,
+                    encrypted=False,  # Development mode
+                )
 
-            # Verify connectivity
-            await self._driver.verify_connectivity()
-            self._connected = True
+                # Verify connectivity
+                await self._driver.verify_connectivity()
+                self._connected = True
 
-            logger.info("Neo4j connection established successfully")
+                logger.info("Neo4j connection established successfully")
+                return
 
-        except (AuthError, ConfigurationError) as e:
-            logger.error("Neo4j authentication/configuration error", error=str(e))
-            raise
-        except ServiceUnavailable as e:
-            logger.error("Neo4j service unavailable", error=str(e))
-            raise
-        except Exception as e:
-            logger.error("Unexpected error connecting to Neo4j", error=str(e))
-            raise
+            except (AuthError, ConfigurationError) as e:
+                logger.error("Neo4j authentication/configuration error", error=str(e))
+                # Auth/config errors won't be fixed by retrying
+                raise
+            except (ServiceUnavailable, Exception) as e:
+                last_error = e
+                # Close driver if partially opened
+                try:
+                    if self._driver:
+                        await self._driver.close()
+                except Exception:
+                    pass
+                self._driver = None
+
+                if attempt == max_attempts:
+                    break
+
+                # Jittered exponential backoff
+                sleep_for = delay
+                logger.warning(
+                    "Neo4j connection attempt failed; retrying",
+                    error=str(e),
+                    attempt=attempt,
+                    next_delay_ms=int(sleep_for * 1000),
+                )
+                await asyncio.sleep(sleep_for)
+                delay = min(delay * 2, 10.0)
+
+        # If we get here, all attempts failed
+        if last_error:
+            if isinstance(last_error, ServiceUnavailable):
+                logger.error("Neo4j service unavailable", error=str(last_error))
+            else:
+                logger.error("Unexpected error connecting to Neo4j", error=str(last_error))
+            raise last_error
 
     async def disconnect(self) -> None:
         """Close connection to Neo4j."""
@@ -89,10 +122,7 @@ class Neo4jClient(KnowledgeGraphBackend):
     async def health_check(self) -> HealthStatus:
         """Check the health status of Neo4j."""
         if not self._connected or not self._driver:
-            return HealthStatus(
-                is_healthy=False,
-                message="Not connected to Neo4j"
-            )
+            return HealthStatus(is_healthy=False, message="Not connected to Neo4j")
 
         try:
             start_time = time.time()
@@ -105,33 +135,24 @@ class Neo4jClient(KnowledgeGraphBackend):
                 if record and record["health_check"] == 1:
                     latency_ms = (time.time() - start_time) * 1000
 
-                    # Get connection pool info
-                    pool_info = self._driver.get_server_info()
+                    # Get server info (async) for optional diagnostics
+                    pool_info = await self._driver.get_server_info()
 
                     return HealthStatus(
                         is_healthy=True,
                         message="Neo4j is healthy",
                         latency_ms=latency_ms,
-                        connection_count=getattr(pool_info, 'connection_count', None)
+                        connection_count=getattr(pool_info, "connection_count", None),
                     )
                 else:
-                    return HealthStatus(
-                        is_healthy=False,
-                        message="Neo4j health check query failed"
-                    )
+                    return HealthStatus(is_healthy=False, message="Neo4j health check query failed")
 
         except (ServiceUnavailable, TransientError) as e:
             logger.warning("Neo4j health check failed", error=str(e))
-            return HealthStatus(
-                is_healthy=False,
-                message=f"Neo4j unavailable: {str(e)}"
-            )
+            return HealthStatus(is_healthy=False, message=f"Neo4j unavailable: {str(e)}")
         except Exception as e:
             logger.error("Neo4j health check error", error=str(e))
-            return HealthStatus(
-                is_healthy=False,
-                message=f"Health check error: {str(e)}"
-            )
+            return HealthStatus(is_healthy=False, message=f"Health check error: {str(e)}")
 
     async def ping(self) -> float:
         """Ping Neo4j and return latency in milliseconds."""
@@ -149,10 +170,7 @@ class Neo4jClient(KnowledgeGraphBackend):
             raise
 
     async def create_node(
-        self,
-        label: str,
-        properties: dict[str, Any],
-        node_id: str | None = None
+        self, label: str, properties: dict[str, Any], node_id: str | None = None
     ) -> str:
         """Create a node in the knowledge graph."""
         if not self._connected or not self._driver:
@@ -189,7 +207,7 @@ class Neo4jClient(KnowledgeGraphBackend):
         from_node_id: str,
         to_node_id: str,
         relationship_type: str,
-        properties: dict[str, Any] | None = None
+        properties: dict[str, Any] | None = None,
     ) -> str:
         """Create a relationship between nodes."""
         if not self._connected or not self._driver:
@@ -209,10 +227,7 @@ class Neo4jClient(KnowledgeGraphBackend):
                 RETURN r.id as relationship_id
                 """
                 result = await session.run(
-                    query,
-                    from_id=from_node_id,
-                    to_id=to_node_id,
-                    properties=properties
+                    query, from_id=from_node_id, to_id=to_node_id, properties=properties
                 )
                 record = await result.single()
 
@@ -222,7 +237,7 @@ class Neo4jClient(KnowledgeGraphBackend):
                         type=relationship_type,
                         from_node=from_node_id,
                         to_node=to_node_id,
-                        relationship_id=record["relationship_id"]
+                        relationship_id=record["relationship_id"],
                     )
                     return record["relationship_id"]
                 else:
@@ -236,10 +251,7 @@ class Neo4jClient(KnowledgeGraphBackend):
             raise
 
     async def find_nodes(
-        self,
-        label: str | None = None,
-        properties: dict[str, Any] | None = None,
-        limit: int = 100
+        self, label: str | None = None, properties: dict[str, Any] | None = None, limit: int = 100
     ) -> list[dict[str, Any]]:
         """Find nodes matching criteria."""
         if not self._connected or not self._driver:
@@ -286,7 +298,7 @@ class Neo4jClient(KnowledgeGraphBackend):
         from_node_id: str | None = None,
         to_node_id: str | None = None,
         relationship_type: str | None = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> list[dict[str, Any]]:
         """Find relationships matching criteria."""
         if not self._connected or not self._driver:
@@ -323,7 +335,7 @@ class Neo4jClient(KnowledgeGraphBackend):
                     rel_data = {
                         "from_node": dict(record["from_node"]),
                         "relationship": dict(record["r"]),
-                        "to_node": dict(record["to_node"])
+                        "to_node": dict(record["to_node"]),
                     }
                     relationships.append(rel_data)
 
@@ -338,9 +350,7 @@ class Neo4jClient(KnowledgeGraphBackend):
             raise
 
     async def run_query(
-        self,
-        query: str,
-        parameters: dict[str, Any] | None = None
+        self, query: str, parameters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """Execute a custom Cypher query."""
         if not self._connected or not self._driver:

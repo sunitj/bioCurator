@@ -167,25 +167,82 @@ redis_pool_size: 10
   - Connection pool management
   - Health check implementations
   - Safety integration requirements
+  - Docker Compose integration complexity
 
-### Technical Insights
-1. **SQLAlchemy Async Complexity**: The async ORM setup requires careful attention to session management and the async context manager pattern
-2. **Connection Pooling Critical**: Each backend needs proper pool configuration for production scalability
-3. **Concurrent Health Checks**: Running health checks in parallel with `asyncio.gather()` significantly improves startup time
-4. **Type Hints Evolution**: Python 3.10+ union syntax (`|`) is cleaner than `Optional` and `Union` imports
-5. **Circuit Breaker Integration**: Per-backend circuit breakers prevent cascading failures effectively
+### Critical Technical Insights
 
-### Patterns That Worked Well
+#### 1. Neo4j 5.15 Configuration Challenges
+- **Property Naming**: Neo4j 5.15 requires specific format for memory settings:
+  - Correct: `NEO4J_server_memory_heap_initial__size=512m`
+  - Incorrect: `NEO4J_server_memory_heap_initial_size=512m`
+- **Plugin Configuration**: APOC and GDS plugins require specific format in Docker
+- **Health Check**: Cypher-shell command needs proper authentication parameters
+
+#### 2. Docker Service Dependencies
+- **Health-Based Dependencies**: Critical for proper startup order
+  ```yaml
+  depends_on:
+    redis:
+      condition: service_healthy
+  ```
+- **Startup Time**: Services can take 30-60 seconds to become healthy
+- **Service Discovery**: Container names (not localhost) required for inter-service communication
+
+#### 3. Environment Variable Management
+- **Docker Networking**: Services must use container names for connection URLs
+  - Use: `redis://redis:6379` not `redis://localhost:6379`
+- **Configuration Mapping**: src/config/loader.py requires comprehensive mapping
+- **Graceful Degradation**: Optional backends like InfluxDB need try/catch patterns
+
+#### 4. FastAPI Evolution
+- **Lifespan Pattern**: Replaced deprecated `@app.on_event` with contextmanager:
+  ```python
+  @asynccontextmanager
+  async def lifespan(app: FastAPI):
+      await app.state.memory_manager.initialize()
+      yield
+      await app.state.memory_manager.shutdown()
+  ```
+
+#### 5. Safety Integration Complexity
+- **Import Management**: EventBus → SafetyEventBus naming convention critical
+- **Health Check Aggregation**: Optional backend failures affect overall status
+- **Circuit Breaker States**: Per-backend monitoring prevents cascading failures
+
+### Technical Patterns That Worked Well
 - **Abstract Interface First**: Defining interfaces before implementations clarified the API
 - **Factory Pattern**: Dynamic backend instantiation based on configuration
 - **Event Bus Integration**: Clean separation between memory failures and safety responses
 - **Centralized Logging**: Using `get_logger(__name__)` provides consistent context
+- **Concurrent Health Checks**: `asyncio.gather()` pattern improves startup performance
+- **Graceful Degradation**: Optional backends don't block system startup
+
+### Docker Deployment Learnings
+- **Service Health Checks**: Essential for reliable container orchestration
+- **Volume Management**: Named volumes prevent data loss during container restarts
+- **Port Mapping**: Required for external access to services (browser, tools)
+- **Network Configuration**: Bridge network sufficient for service communication
+- **Memory Allocation**: Neo4j requires minimum 512MB heap for stable operation
+
+### Production Readiness Insights
+- **Connection Pooling**: Critical for multi-agent concurrent access
+- **Error Boundaries**: Each backend needs independent failure handling
+- **Monitoring Integration**: Health endpoints must reflect actual system status
+- **Resource Management**: Memory and connection limits prevent resource exhaustion
+
+### Testing Strategy Evolution
+- **Integration Testing**: Real database containers required for accurate testing
+- **Health Check Validation**: Must test under various failure conditions
+- **Performance Benchmarking**: Concurrent access patterns reveal scaling issues
+- **Error Simulation**: Circuit breaker behavior needs systematic testing
 
 ### Future Improvements
 - Add connection retry logic with exponential backoff
 - Implement connection pool monitoring metrics
 - Add distributed tracing support for multi-backend operations
 - Create performance benchmarking suite
+- Implement data migration tools for schema evolution
+- Add backup and restore procedures for production deployment
 
 ## Related Decisions
 - ADR-0001: Logging and configuration architecture

@@ -108,6 +108,7 @@ class ConfigLoader:
             "NEO4J_PASSWORD": "database.neo4j_password",
             "POSTGRES_URL": "database.postgres_url",
             "QDRANT_URL": "database.qdrant_url",
+            "INFLUXDB_URL": "database.influxdb_url",
             # Model settings
             "MODEL_PROVIDER": "models.provider",
             "OLLAMA_HOST": "models.ollama_host",

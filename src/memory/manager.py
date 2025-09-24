@@ -5,7 +5,7 @@ import asyncio
 from ..config.schemas import DatabaseConfig
 from ..logging import get_logger
 from ..safety.circuit_breaker import CircuitBreaker
-from ..safety.event_bus import EventBus, SafetyEvent, SafetyEventType
+from ..safety.event_bus import SafetyEventBus, SafetyEvent, SafetyEventType
 from .interfaces import (
     EpisodicBackend,
     HealthStatus,
@@ -25,8 +25,8 @@ class DefaultMemoryManager(MemoryManager):
     def __init__(
         self,
         config: DatabaseConfig,
-        event_bus: EventBus | None = None,
-        circuit_breaker: CircuitBreaker | None = None
+        event_bus: SafetyEventBus | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
     ):
         """Initialize memory manager.
 
@@ -36,7 +36,7 @@ class DefaultMemoryManager(MemoryManager):
             circuit_breaker: Circuit breaker for fault tolerance
         """
         self.config = config
-        self.event_bus = event_bus or EventBus()
+        self.event_bus = event_bus or SafetyEventBus()
         self.circuit_breaker = circuit_breaker
 
         # Backend instances
@@ -63,15 +63,26 @@ class DefaultMemoryManager(MemoryManager):
 
             # Verify all connections
             health_results = await self.health_check_all()
-            failed_backends = [
-                name for name, status in health_results.items()
-                if not status.is_healthy
-            ]
 
-            if failed_backends:
-                error_msg = f"Failed to initialize backends: {failed_backends}"
+            # Backends considered optional for startup gating
+            optional_backends = {"time_series"}
+
+            failed_backends = [
+                name for name, status in health_results.items() if not status.is_healthy
+            ]
+            gating_failures = [name for name in failed_backends if name not in optional_backends]
+
+            if gating_failures:
+                error_msg = f"Failed to initialize backends: {gating_failures}"
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
+
+            # Log optional backend issues without failing startup
+            optional_issues = [name for name in failed_backends if name in optional_backends]
+            if optional_issues:
+                logger.warning(
+                    "Optional backends unavailable; continuing", backends=optional_issues
+                )
 
             self._initialized = True
             logger.info("Memory manager initialized successfully")
@@ -123,27 +134,20 @@ class DefaultMemoryManager(MemoryManager):
         # Run health checks concurrently
         async def check_backend(name: str, backend: object | None) -> tuple[str, HealthStatus]:
             if not backend:
-                return name, HealthStatus(
-                    is_healthy=False,
-                    message="Backend not initialized"
-                )
+                return name, HealthStatus(is_healthy=False, message="Backend not initialized")
 
             try:
                 if self.circuit_breaker and name in self.circuit_breaker.breakers:
                     breaker = self.circuit_breaker.breakers[name]
                     if breaker.is_open:
                         return name, HealthStatus(
-                            is_healthy=False,
-                            message="Circuit breaker is open"
+                            is_healthy=False, message="Circuit breaker is open"
                         )
 
                 return name, await backend.health_check()
             except Exception as e:
                 logger.error(f"Health check failed for {name}", error=str(e))
-                return name, HealthStatus(
-                    is_healthy=False,
-                    message=f"Health check error: {str(e)}"
-                )
+                return name, HealthStatus(is_healthy=False, message=f"Health check error: {str(e)}")
 
         health_tasks = [check_backend(name, backend) for name, backend in backends]
         health_results = await asyncio.gather(*health_tasks)
@@ -153,11 +157,14 @@ class DefaultMemoryManager(MemoryManager):
         # Emit safety events for unhealthy backends
         for name, status in results.items():
             if not status.is_healthy:
-                await self.event_bus.emit(SafetyEvent(
-                    event_type=SafetyEventType.MEMORY_BACKEND_FAILURE,
-                    message=f"Memory backend {name} is unhealthy: {status.message}",
-                    metadata={"backend": name, "status": status.model_dump()}
-                ))
+                self.event_bus.emit(
+                    SafetyEvent(
+                        event_type=SafetyEventType.MEMORY_BACKEND_FAILURE,
+                        component=name,
+                        message=f"Memory backend {name} is unhealthy: {status.message}",
+                        metadata={"backend": name, "status": status.model_dump()},
+                    )
+                )
 
         return results
 
@@ -185,16 +192,16 @@ class DefaultMemoryManager(MemoryManager):
             raise RuntimeError("Working memory backend not initialized")
         return self._working_memory
 
-    def get_time_series(self) -> TimeSeriesBackend:
+    def get_time_series(self) -> TimeSeriesBackend | None:
         """Get the time-series backend."""
         if not self._time_series:
-            raise RuntimeError("Time series backend not initialized")
+            logger.warning("Time series backend not available")
+            return None
         return self._time_series
 
     async def _initialize_backends(self) -> None:
         """Initialize individual backends."""
         # Import here to avoid circular dependencies
-        from .influx_client import InfluxClient
         from .neo4j_client import Neo4jClient
         from .postgres_client import PostgresClient
         from .qdrant_client import QdrantClient
@@ -214,8 +221,21 @@ class DefaultMemoryManager(MemoryManager):
         self._episodic_memory = PostgresClient(self.config.model_dump())
         await self._episodic_memory.connect()
 
-        self._time_series = InfluxClient(self.config.model_dump())
-        await self._time_series.connect()
+        # Initialize InfluxDB (time series) - optional backend
+        try:
+            from .influx_client import InfluxClient
+
+            self._time_series = InfluxClient(self.config.model_dump())
+            await self._time_series.connect()
+            logger.info("InfluxDB time-series backend initialized successfully")
+        except ImportError as e:
+            logger.warning(
+                "InfluxDB client not available, time-series backend disabled", error=str(e)
+            )
+            self._time_series = None
+        except Exception as e:
+            logger.warning("Failed to initialize InfluxDB backend", error=str(e))
+            self._time_series = None
 
     @property
     def is_initialized(self) -> bool:

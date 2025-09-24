@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from ..config import settings
@@ -34,7 +34,7 @@ def create_health_router() -> APIRouter:
     router = APIRouter()
 
     @router.get("/", response_model=HealthResponse)
-    async def health_check():
+    async def health_check(request: Request):
         """
         Get overall system health status.
 
@@ -63,14 +63,45 @@ def create_health_router() -> APIRouter:
                 ),
             ]
 
-            return HealthResponse(status="healthy", timestamp=time.time(), components=components)
+            # Check memory system health if available
+            if hasattr(request.app.state, "memory_manager"):
+                memory_manager = request.app.state.memory_manager
+                try:
+                    memory_health = await memory_manager.health_check_all()
+                    for backend_name, health_status in memory_health.items():
+                        components.append(
+                            ComponentHealthResponse(
+                                name=f"memory_{backend_name}",
+                                status="healthy" if health_status.is_healthy else "unhealthy",
+                                message=health_status.message,
+                                response_time_ms=health_status.latency_ms,
+                                metadata={
+                                    "connection_count": health_status.connection_count,
+                                    "memory_usage_mb": health_status.memory_usage_mb,
+                                },
+                            )
+                        )
+                except Exception as e:
+                    logger.warning("Memory health check failed", error=str(e))
+                    components.append(
+                        ComponentHealthResponse(
+                            name="memory_system",
+                            status="unhealthy",
+                            message=f"Memory health check failed: {str(e)}",
+                        )
+                    )
+
+            # Determine overall status
+            overall_status = "healthy" if all(c.status == "healthy" for c in components) else "unhealthy"
+
+            return HealthResponse(status=overall_status, timestamp=time.time(), components=components)
 
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             raise HTTPException(status_code=500, detail="Health check failed")
 
     @router.get("/ready")
-    async def readiness_check():
+    async def readiness_check(request: Request):
         """
         Check if the system is ready to serve requests.
 
@@ -81,8 +112,27 @@ def create_health_router() -> APIRouter:
             if not settings:
                 raise HTTPException(status_code=503, detail="Configuration not loaded")
 
+            # Check if memory system is ready
+            if hasattr(request.app.state, "memory_manager"):
+                memory_manager = request.app.state.memory_manager
+                try:
+                    memory_health = await memory_manager.health_check_all()
+                    unhealthy_backends = [
+                        name for name, health in memory_health.items() if not health.is_healthy
+                    ]
+                    if unhealthy_backends:
+                        raise HTTPException(
+                            status_code=503,
+                            detail=f"Memory backends not ready: {', '.join(unhealthy_backends)}",
+                        )
+                except Exception as e:
+                    logger.error("Memory readiness check failed", error=str(e))
+                    raise HTTPException(status_code=503, detail="Memory system not ready")
+
             return {"status": "ready", "message": "System is ready to serve requests"}
 
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Readiness check failed: {e}")
             raise HTTPException(status_code=503, detail="System not ready")
